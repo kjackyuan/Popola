@@ -25,7 +25,7 @@ TERRAIN_TYPES = {
 class Grid:
     """Tactical grid for the battle simulator"""
 
-    def __init__(self, width: int = 15, height: int = 10):
+    def __init__(self, width: int = 20, height: int = 20):
         self.width = width
         self.height = height
         self.tiles = self._initialize_grid()
@@ -151,6 +151,6 @@ class Grid:
             ]
         }
 
-def create_battle_map(width: int = 15, height: int = 10) -> Grid:
+def create_battle_map(width: int = 20, height: int = 20) -> Grid:
     """Create a new battle map"""
     return Grid(width, height)

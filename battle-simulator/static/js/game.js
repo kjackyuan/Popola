@@ -1,7 +1,7 @@
 // Game constants
 const TILE_SIZE = 32;
-const GRID_WIDTH = 15;
-const GRID_HEIGHT = 10;
+const GRID_WIDTH = 20;
+const GRID_HEIGHT = 20;
 const CANVAS_WIDTH = GRID_WIDTH * TILE_SIZE;
 const CANVAS_HEIGHT = GRID_HEIGHT * TILE_SIZE;
 
@@ -25,6 +25,10 @@ let canvas, ctx;
 function initGame() {
     canvas = document.getElementById('game-canvas');
     ctx = canvas.getContext('2d');
+    if (!ctx) {
+        console.error('Failed to get canvas context!');
+        return;
+    }
 
     // Set canvas size
     canvas.width = CANVAS_WIDTH;
@@ -37,6 +41,7 @@ function initGame() {
     loadGameState();
 
     // Start render loop
+    console.log('Starting render loop...');
     render();
 }
 
@@ -90,12 +95,21 @@ async function startGame() {
         const result = await response.json();
         if (result.status === 'success') {
             gameState = result.game_state;
+            console.log('Units received:', gameState.units ? gameState.units.length : 0);
+            console.log('Game state received:', gameState);
+            console.log('Grid dimensions:', gameState.grid ? `${gameState.grid.width}x${gameState.grid.height}` : 'No grid');
+            if (gameState.units) {
+                gameState.units.forEach((unit, index) => {
+                    console.log(`Unit ${index}: ${unit.name} at (${unit.x}, ${unit.y}) team: ${unit.team}`);
+                });
+            }
             gameState.viewedUnit = null;  // Clear viewed unit on game start
             gameState.inspectedTile = null;  // Clear inspected tile on game start
             gameState.movementRange = [];  // Clear movement range on game start
             updateUI();
             addToBattleLog('Battle started! Player turn.');
         } else {
+            console.log('Start battle failed');
             addToBattleLog('Failed to start battle.');
         }
     } catch (error) {
@@ -213,6 +227,12 @@ function viewUnit(unit) {
 
 // Inspect terrain at coordinates
 function inspectTerrain(x, y) {
+    // If clicking on the same terrain tile, deselect it
+    if (gameState.inspectedTile && gameState.inspectedTile.x === x && gameState.inspectedTile.y === y) {
+        deselectUnit();
+        return;
+    }
+
     gameState.inspectedTile = { x, y };
     gameState.selectedUnit = null;  // Clear selection when inspecting terrain
     gameState.viewedUnit = null;  // Clear viewed unit when inspecting terrain
@@ -301,6 +321,7 @@ async function moveUnit(x, y) {
 
     addToBattleLog(`${gameState.selectedUnit.name} moved to (${x}, ${y})`);
     gameState.movementRange = [];  // Clear movement range after moving
+    gameState.inspectedTile = null;  // Clear inspected tile after moving
     gameState.showMovementRange = false;
     updateUI();
 }
@@ -475,6 +496,9 @@ function addToBattleLog(message) {
 
 // Render the game
 function render() {
+    // Clear canvas completely
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
     // Draw terrain (fills entire canvas with terrain colors)
     drawTerrain();
 
@@ -505,9 +529,17 @@ function render() {
 function drawTerrain() {
     if (!gameState.grid || !gameState.grid.tiles) return;
 
-    for (let y = 0; y < GRID_HEIGHT; y++) {
-        for (let x = 0; x < GRID_WIDTH; x++) {
-            const terrainName = gameState.grid.tiles[y][x];
+    // Ensure we don't go beyond the actual grid bounds
+    const maxY = Math.min(GRID_HEIGHT, gameState.grid.tiles.length);
+
+    for (let y = 0; y < maxY; y++) {
+        const row = gameState.grid.tiles[y];
+        if (!row) continue;
+
+        const maxX = Math.min(GRID_WIDTH, row.length);
+
+        for (let x = 0; x < maxX; x++) {
+            const terrainName = row[x];
             let terrainColor = '#27ae60'; // Default grass color
 
             // Set color based on terrain type
@@ -538,7 +570,7 @@ function drawTerrain() {
 
 // Draw grid lines
 function drawGrid() {
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.lineWidth = 1;
 
     // Vertical lines
@@ -626,38 +658,62 @@ function drawTerrainInspection() {
 
 // Draw units
 function drawUnits() {
-    gameState.units.forEach(unit => {
+    if (!gameState.units || gameState.units.length === 0) {
+        console.log('drawUnits: No units to draw');
+        return;
+    }
+
+    console.log(`drawUnits: Drawing ${gameState.units.length} units`);
+    gameState.units.forEach((unit, index) => {
+        console.log(`Drawing unit ${index}: ${unit.name} at (${unit.x}, ${unit.y})`);
         // Unit body
         ctx.fillStyle = unit.team === 'player' ? '#3498db' : '#e74c3c';
-        ctx.fillRect(unit.x * TILE_SIZE + 4, unit.y * TILE_SIZE + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+        ctx.fillRect(unit.x * TILE_SIZE + 2, unit.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
 
         // Unit border
         ctx.strokeStyle = unit === gameState.selectedUnit ? '#f39c12' : 'white';
         ctx.lineWidth = unit === gameState.selectedUnit ? 3 : 2;
-        ctx.strokeRect(unit.x * TILE_SIZE + 4, unit.y * TILE_SIZE + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+        ctx.strokeRect(unit.x * TILE_SIZE + 2, unit.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
 
         // Unit type indicator
         ctx.fillStyle = 'white';
         ctx.font = '12px Arial';
         ctx.textAlign = 'center';
+
+        let typeIndicator = 'U'; // Default unknown
+        switch (unit.type) {
+            case 'warrior':
+                typeIndicator = 'W';
+                break;
+            case 'archer':
+                typeIndicator = 'A';
+                break;
+            case 'mage':
+                typeIndicator = 'M';
+                break;
+            case 'knight':
+                typeIndicator = 'K';
+                break;
+        }
+
         ctx.fillText(
-            unit.type === 'warrior' ? 'W' : 'A',
+            typeIndicator,
             unit.x * TILE_SIZE + TILE_SIZE / 2,
             unit.y * TILE_SIZE + TILE_SIZE / 2 + 4
         );
 
         // HP bar
         const hpPercent = unit.hp / unit.maxHp;
-        const barWidth = TILE_SIZE - 8;
+        const barWidth = TILE_SIZE - 4;
         const barHeight = 4;
 
         // Background
         ctx.fillStyle = 'red';
-        ctx.fillRect(unit.x * TILE_SIZE + 4, unit.y * TILE_SIZE + TILE_SIZE - 8, barWidth, barHeight);
+        ctx.fillRect(unit.x * TILE_SIZE + 2, unit.y * TILE_SIZE + TILE_SIZE - 6, barWidth, barHeight);
 
         // HP
         ctx.fillStyle = hpPercent > 0.5 ? 'green' : hpPercent > 0.25 ? 'yellow' : 'red';
-        ctx.fillRect(unit.x * TILE_SIZE + 4, unit.y * TILE_SIZE + TILE_SIZE - 8, barWidth * hpPercent, barHeight);
+        ctx.fillRect(unit.x * TILE_SIZE + 2, unit.y * TILE_SIZE + TILE_SIZE - 6, barWidth * hpPercent, barHeight);
     });
 }
 

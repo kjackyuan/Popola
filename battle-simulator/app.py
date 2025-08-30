@@ -50,6 +50,8 @@ class GameState:
 
 # Global game state instance
 game_state = GameState()
+# Force grid recreation with new dimensions
+game_state.grid = Grid(20, 20)
 
 @app.route('/')
 def index():
@@ -154,17 +156,45 @@ def attack():
 
 @app.route('/api/start-battle', methods=['POST'])
 def start_battle():
-    """Initialize a new battle with default units"""
+    """Initialize a new battle with units of all classes in starting camps"""
     global game_state
     game_state.reset()
 
-    # Add player units
-    game_state.add_unit('Hero', 2, 3, 'player', 'warrior')
-    game_state.add_unit('Archer', 3, 4, 'player', 'archer')
+    import random
 
-    # Add enemy units
-    game_state.add_unit('Orc', 12, 3, 'enemy', 'warrior')
-    game_state.add_unit('Goblin', 11, 5, 'enemy', 'archer')
+    # Player starting camp: bottom-left region (columns 0-8, rows 12-19)
+    player_positions = []
+    for x in range(0, 9):
+        for y in range(12, 20):
+            player_positions.append((x, y))
+
+    # Enemy starting camp: top-right region (columns 12-19, rows 0-7)
+    enemy_positions = []
+    for x in range(12, 20):
+        for y in range(0, 8):
+            enemy_positions.append((x, y))
+
+    # Shuffle positions for random placement within camps
+    random.shuffle(player_positions)
+    random.shuffle(enemy_positions)
+
+    # Create player units (one of each class)
+    player_classes = ['warrior', 'archer', 'mage', 'knight']
+    player_names = ['Hero', 'Archer', 'Mage', 'Knight']
+
+    for i, (unit_class, name) in enumerate(zip(player_classes, player_names)):
+        if i < len(player_positions):
+            x, y = player_positions[i]
+            game_state.add_unit(name, x, y, 'player', unit_class)
+
+    # Create enemy units (one of each class)
+    enemy_classes = ['warrior', 'archer', 'mage', 'knight']
+    enemy_names = ['Orc', 'Goblin', 'Necromancer', 'Dark Knight']
+
+    for i, (unit_class, name) in enumerate(zip(enemy_classes, enemy_names)):
+        if i < len(enemy_positions):
+            x, y = enemy_positions[i]
+            game_state.add_unit(name, x, y, 'enemy', unit_class)
 
     game_state.game_started = True
 
