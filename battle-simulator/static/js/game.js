@@ -11,6 +11,7 @@ let gameState = {
     units: [],
     selectedUnit: null,
     viewedUnit: null,  // For viewing enemy unit stats
+    inspectedTile: null,  // For viewing terrain info
     showMovementRange: false,
     showAttackRange: false,
     gameStarted: false
@@ -54,6 +55,7 @@ async function loadGameState() {
         const response = await fetch('/api/game-state');
         const data = await response.json();
         gameState = { ...gameState, ...data };
+        gameState.inspectedTile = null;  // Clear inspected tile on load
         updateUI();
     } catch (error) {
         console.error('Error loading game state:', error);
@@ -87,6 +89,7 @@ async function startGame() {
         if (result.status === 'success') {
             gameState = result.game_state;
             gameState.viewedUnit = null;  // Clear viewed unit on game start
+            gameState.inspectedTile = null;  // Clear inspected tile on game start
             updateUI();
             addToBattleLog('Battle started! Player turn.');
         } else {
@@ -107,6 +110,7 @@ async function resetGame() {
             units: [],
             selectedUnit: null,
             viewedUnit: null,
+            inspectedTile: null,
             showMovementRange: false,
             showAttackRange: false,
             gameStarted: false
@@ -151,8 +155,8 @@ function handleCanvasClick(event) {
         if (gameState.selectedUnit && gameState.showMovementRange) {
             moveUnit(x, y);
         } else {
-            // Deselect current unit if clicking on empty tile
-            deselectUnit();
+            // Inspect terrain if clicking on empty tile
+            inspectTerrain(x, y);
         }
     }
 }
@@ -161,6 +165,7 @@ function handleCanvasClick(event) {
 function selectUnit(unit) {
     gameState.selectedUnit = unit;
     gameState.viewedUnit = null;  // Clear viewed unit when selecting
+    gameState.inspectedTile = null;  // Clear inspected tile when selecting
     gameState.showMovementRange = true;
     gameState.showAttackRange = false;
     updateUI();
@@ -171,16 +176,29 @@ function selectUnit(unit) {
 function viewUnit(unit) {
     gameState.viewedUnit = unit;
     gameState.selectedUnit = null;  // Clear selection when viewing enemy
+    gameState.inspectedTile = null;  // Clear inspected tile when viewing unit
     gameState.showMovementRange = false;
     gameState.showAttackRange = false;
     updateUI();
     addToBattleLog(`Viewing ${unit.name} (${unit.team} unit)`);
 }
 
+// Inspect terrain at coordinates
+function inspectTerrain(x, y) {
+    gameState.inspectedTile = { x, y };
+    gameState.selectedUnit = null;  // Clear selection when inspecting terrain
+    gameState.viewedUnit = null;  // Clear viewed unit when inspecting terrain
+    gameState.showMovementRange = false;
+    gameState.showAttackRange = false;
+    updateUI();
+    addToBattleLog(`Inspecting terrain at (${x}, ${y})`);
+}
+
 // Deselect current unit
 function deselectUnit() {
     gameState.selectedUnit = null;
     gameState.viewedUnit = null;
+    gameState.inspectedTile = null;
     gameState.showMovementRange = false;
     gameState.showAttackRange = false;
     updateUI();
@@ -286,10 +304,34 @@ async function attackUnit(targetUnit) {
 function endUnitTurn() {
     gameState.selectedUnit = null;
     gameState.viewedUnit = null;
+    gameState.inspectedTile = null;
     gameState.showMovementRange = false;
     gameState.showAttackRange = false;
     updateUI();
     addToBattleLog('Unit turn ended');
+}
+
+// Get terrain information at coordinates
+function getTerrainAt(x, y) {
+    if (!gameState.grid || !gameState.grid.tiles) return null;
+
+    // Make sure coordinates are within bounds
+    if (x < 0 || x >= GRID_WIDTH || y < 0 || y >= GRID_HEIGHT) {
+        return null;
+    }
+
+    const terrainName = gameState.grid.tiles[y][x];
+
+    // Define terrain properties based on name
+    const terrainProperties = {
+        'Grass': { name: 'Grass', movementCost: 1, defenseBonus: 0, color: '#27ae60' },
+        'Forest': { name: 'Forest', movementCost: 2, defenseBonus: 1, color: '#145a32' },
+        'Mountain': { name: 'Mountain', movementCost: 3, defenseBonus: 2, color: '#566573' },
+        'Water': { name: 'Water', movementCost: 2, defenseBonus: 0, color: '#3498db' },
+        'Road': { name: 'Road', movementCost: 1, defenseBonus: 0, color: '#d5dbdb' }
+    };
+
+    return terrainProperties[terrainName] || null;
 }
 
 // Update the UI elements
@@ -298,13 +340,45 @@ function updateUI() {
     document.getElementById('turn-indicator').textContent =
         gameState.currentTurn === 'player' ? 'Player Turn' : 'Enemy Turn';
 
-    // Update unit info
+    // Update unit info or terrain info
     const unitStats = document.getElementById('unit-stats');
     const unitToShow = gameState.selectedUnit || gameState.viewedUnit;
+    const terrainToShow = gameState.inspectedTile;
 
-    if (unitToShow) {
+    if (terrainToShow) {
+        // Show terrain information
+        const terrain = getTerrainAt(terrainToShow.x, terrainToShow.y);
+        if (terrain) {
+            unitStats.innerHTML = `
+                <p><span class="stat-label">Terrain:</span> <span class="stat-value">${terrain.name}</span></p>
+                <p><span class="stat-label">Position:</span> <span class="stat-value">(${terrainToShow.x}, ${terrainToShow.y})</span></p>
+                <p><span class="stat-label">Movement Cost:</span> <span class="stat-value">${terrain.movementCost}</span></p>
+                <p><span class="stat-label">Defense Bonus:</span> <span class="stat-value">+${terrain.defenseBonus}</span></p>
+                <p style="color: #27ae60; font-weight: bold;">Terrain Info</p>
+            `;
+        } else {
+            unitStats.innerHTML = `
+                <p><span class="stat-label">Position:</span> <span class="stat-value">(${terrainToShow.x}, ${terrainToShow.y})</span></p>
+                <p>Invalid terrain position</p>
+            `;
+        }
+
+        // Disable action buttons when viewing terrain
+        document.getElementById('move-btn').disabled = true;
+        document.getElementById('attack-btn').disabled = true;
+        document.getElementById('wait-btn').disabled = true;
+    } else if (unitToShow) {
         const isEnemy = unitToShow.team !== 'player';
         const canControl = unitToShow.team === gameState.currentTurn;
+
+        // Get terrain information for the unit's position
+        const terrain = getTerrainAt(unitToShow.x, unitToShow.y);
+        const terrainInfo = terrain ? `
+            <p><span class="stat-label">Terrain:</span> <span class="stat-value">${terrain.name}</span></p>
+            <p><span class="stat-label">Position:</span> <span class="stat-value">(${unitToShow.x}, ${unitToShow.y})</span></p>
+            <p><span class="stat-label">Movement Cost:</span> <span class="stat-value">${terrain.movementCost}</span></p>
+            <p><span class="stat-label">Defense Bonus:</span> <span class="stat-value">+${terrain.defenseBonus}</span></p>
+        ` : '';
 
         unitStats.innerHTML = `
             <p><span class="stat-label">Name:</span> <span class="stat-value">${unitToShow.name}</span></p>
@@ -313,7 +387,8 @@ function updateUI() {
             <p><span class="stat-label">Attack:</span> <span class="stat-value">${unitToShow.attack}</span></p>
             <p><span class="stat-label">Defense:</span> <span class="stat-value">${unitToShow.defense}</span></p>
             <p><span class="stat-label">Movement:</span> <span class="stat-value">${unitToShow.movement}</span></p>
-            ${isEnemy ? '<p style="color: #e74c3c; font-weight: bold;">Enemy Unit - Cannot Control</p>' : ''}
+            ${terrainInfo}
+            ${isEnemy ? '<p style="color: #e74c3c; font-weight: bold;">Enemy Unit - Cannot Control</p>' : '<p style="color: #27ae60; font-weight: bold;">Unit Info</p>'}
         `;
 
         // Enable/disable action buttons based on whether we can control this unit
@@ -347,12 +422,16 @@ function addToBattleLog(message) {
 
 // Render the game
 function render() {
-    // Clear canvas
-    ctx.fillStyle = '#27ae60';
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    // Draw terrain (fills entire canvas with terrain colors)
+    drawTerrain();
 
     // Draw grid
     drawGrid();
+
+    // Draw terrain inspection highlight
+    if (gameState.inspectedTile) {
+        drawTerrainInspection();
+    }
 
     // Draw movement/attack ranges
     if (gameState.showMovementRange && gameState.selectedUnit) {
@@ -367,6 +446,41 @@ function render() {
 
     // Request next frame
     requestAnimationFrame(render);
+}
+
+// Draw terrain tiles
+function drawTerrain() {
+    if (!gameState.grid || !gameState.grid.tiles) return;
+
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+        for (let x = 0; x < GRID_WIDTH; x++) {
+            const terrainName = gameState.grid.tiles[y][x];
+            let terrainColor = '#27ae60'; // Default grass color
+
+            // Set color based on terrain type
+            switch (terrainName) {
+                case 'Grass':
+                    terrainColor = '#27ae60'; // Light green
+                    break;
+                case 'Forest':
+                    terrainColor = '#145a32'; // Dark green
+                    break;
+                case 'Mountain':
+                    terrainColor = '#566573'; // Gray
+                    break;
+                case 'Water':
+                    terrainColor = '#3498db'; // Blue
+                    break;
+                case 'Road':
+                    terrainColor = '#d5dbdb'; // Light gray
+                    break;
+            }
+
+            // Draw terrain tile
+            ctx.fillStyle = terrainColor;
+            ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+    }
 }
 
 // Draw grid lines
@@ -437,6 +551,26 @@ function drawAttackRange() {
             }
         }
     });
+}
+
+// Draw terrain inspection highlight
+function drawTerrainInspection() {
+    if (!gameState.inspectedTile) return;
+
+    const { x, y } = gameState.inspectedTile;
+    ctx.fillStyle = 'rgba(52, 152, 219, 0.4)';  // Light blue highlight
+    ctx.strokeStyle = '#3498db';  // Blue border
+    ctx.lineWidth = 3;
+
+    // Draw highlight
+    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+
+    // Add a small indicator in the corner to show it's being inspected
+    ctx.fillStyle = '#f39c12';  // Orange indicator
+    ctx.beginPath();
+    ctx.arc(x * TILE_SIZE + TILE_SIZE - 8, y * TILE_SIZE + 8, 4, 0, 2 * Math.PI);
+    ctx.fill();
 }
 
 // Draw units

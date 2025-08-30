@@ -40,7 +40,7 @@ class Unit:
 
     def take_damage(self, damage):
         """Apply damage to unit"""
-        actual_damage = max(0, damage - self.defense)
+        actual_damage = max(0, damage)  # Damage is already calculated with defense
         self.hp -= actual_damage
         return actual_damage
 

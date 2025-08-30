@@ -31,20 +31,31 @@ class Grid:
         self.tiles = self._initialize_grid()
 
     def _initialize_grid(self) -> List[List[Terrain]]:
-        """Initialize grid with default grass terrain"""
+        """Initialize grid with randomized terrain"""
+        import random
+
+        # Set seed for reproducible randomization (optional)
+        # random.seed(42)  # Uncomment to get consistent maps for testing
+
         grid = []
         for y in range(self.height):
             row = []
             for x in range(self.width):
-                # Add some variety to terrain
-                if (x + y) % 7 == 0:
-                    terrain = TERRAIN_TYPES['forest']
-                elif (x * y) % 13 == 0:
-                    terrain = TERRAIN_TYPES['mountain']
-                elif x % 4 == 0 and y % 3 == 0:
+                # Generate random terrain with weighted probabilities
+                rand = random.random()
+
+                # Terrain distribution: 60% grass, 20% forest, 10% mountain, 8% water, 2% road
+                if rand < 0.02:  # 2% chance
+                    terrain = TERRAIN_TYPES['road']
+                elif rand < 0.10:  # 8% chance
                     terrain = TERRAIN_TYPES['water']
-                else:
+                elif rand < 0.20:  # 10% chance
+                    terrain = TERRAIN_TYPES['mountain']
+                elif rand < 0.40:  # 20% chance
+                    terrain = TERRAIN_TYPES['forest']
+                else:  # 60% chance
                     terrain = TERRAIN_TYPES['grass']
+
                 row.append(terrain)
             grid.append(row)
         return grid
