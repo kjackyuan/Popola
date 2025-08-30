@@ -22,6 +22,10 @@ class Unit:
         self.defense = 3
         self.movement = 4
 
+        # Attack range (min, max) - will be overridden by subclasses
+        self.min_attack_range = 1
+        self.max_attack_range = 1
+
     def to_dict(self):
         """Convert unit to dictionary for JSON serialization"""
         return {
@@ -34,6 +38,8 @@ class Unit:
             'attack': self.attack,
             'defense': self.defense,
             'movement': self.movement,
+            'minAttackRange': self.min_attack_range,
+            'maxAttackRange': self.max_attack_range,
             'team': self.team,
             'type': self.type
         }
@@ -58,9 +64,9 @@ class Unit:
         if self.team == target.team:
             return False
 
-        # Check if adjacent
+        # Check if within attack range
         distance = abs(self.x - target.x) + abs(self.y - target.y)
-        return distance <= 1
+        return self.min_attack_range <= distance <= self.max_attack_range
 
 class Warrior(Unit):
     """Melee fighter unit"""
@@ -72,6 +78,8 @@ class Warrior(Unit):
         self.attack = 8
         self.defense = 6
         self.movement = 4
+        self.min_attack_range = 1
+        self.max_attack_range = 1
 
 class Archer(Unit):
     """Ranged fighter unit"""
@@ -83,6 +91,8 @@ class Archer(Unit):
         self.attack = 6
         self.defense = 3
         self.movement = 5
+        self.min_attack_range = 2
+        self.max_attack_range = 3
 
 class Mage(Unit):
     """Magic user unit"""
@@ -94,6 +104,8 @@ class Mage(Unit):
         self.attack = 9
         self.defense = 2
         self.movement = 4
+        self.min_attack_range = 1
+        self.max_attack_range = 2
 
 class Knight(Unit):
     """Heavy armored unit"""
@@ -105,6 +117,8 @@ class Knight(Unit):
         self.attack = 7
         self.defense = 8
         self.movement = 3
+        self.min_attack_range = 1
+        self.max_attack_range = 1
 
 def create_unit(unit_id, name, x, y, team, unit_type):
     """Factory function to create units by type"""

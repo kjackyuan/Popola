@@ -196,7 +196,7 @@ async function selectUnit(unit) {
     }
 
     updateUI();
-    addToBattleLog(`Selected ${unit.name}`);
+    addToBattleLog(`Selected ${unit.name} (${unit.type}, range ${unit.minAttackRange}-${unit.maxAttackRange})`);
 }
 
 // View unit stats (for enemy units)
@@ -208,7 +208,7 @@ function viewUnit(unit) {
     gameState.showMovementRange = false;
     gameState.showAttackRange = false;
     updateUI();
-    addToBattleLog(`Viewing ${unit.name} (${unit.team} unit)`);
+    addToBattleLog(`Viewing ${unit.name} (${unit.team} ${unit.type}, range ${unit.minAttackRange}-${unit.maxAttackRange})`);
 }
 
 // Inspect terrain at coordinates
@@ -311,8 +311,11 @@ async function attackUnit(targetUnit) {
 
     // Check if attack is valid (adjacent tiles)
     const distance = Math.abs(gameState.selectedUnit.x - targetUnit.x) + Math.abs(gameState.selectedUnit.y - targetUnit.y);
-    if (distance > 1) {
+    if (distance > gameState.selectedUnit.maxAttackRange) {
         addToBattleLog('Target is too far away!');
+        return;
+    } else if (distance < gameState.selectedUnit.minAttackRange) {
+        addToBattleLog('Target is too close!');
         return;
     }
 
@@ -436,6 +439,7 @@ function updateUI() {
             <p><span class="stat-label">Attack:</span> <span class="stat-value">${unitToShow.attack}</span></p>
             <p><span class="stat-label">Defense:</span> <span class="stat-value">${unitToShow.defense}</span></p>
             <p><span class="stat-label">Movement:</span> <span class="stat-value">${unitToShow.movement}</span></p>
+            <p><span class="stat-label">Attack Range:</span> <span class="stat-value">${unitToShow.minAttackRange}-${unitToShow.maxAttackRange}</span></p>
             ${terrainInfo}
             ${isEnemy ? '<p style="color: #e74c3c; font-weight: bold;">Enemy Unit - Cannot Control</p>' : '<p style="color: #27ae60; font-weight: bold;">Unit Info</p>'}
         `;
@@ -572,27 +576,32 @@ function drawMovementRange() {
 // Draw attack range
 function drawAttackRange() {
     const unit = gameState.selectedUnit;
+    if (!unit || !unit.minAttackRange || !unit.maxAttackRange) return;
+
     ctx.fillStyle = 'rgba(231, 76, 60, 0.3)';
     ctx.strokeStyle = '#e74c3c';
     ctx.lineWidth = 2;
 
-    // Adjacent tiles (attack range of 1)
-    const directions = [
-        [-1, 0], [1, 0], [0, -1], [0, 1]
-    ];
+    // Draw all tiles within attack range
+    for (let x = Math.max(0, unit.x - unit.maxAttackRange);
+         x <= Math.min(GRID_WIDTH - 1, unit.x + unit.maxAttackRange);
+         x++) {
+        for (let y = Math.max(0, unit.y - unit.maxAttackRange);
+             y <= Math.min(GRID_HEIGHT - 1, unit.y + unit.maxAttackRange);
+             y++) {
 
-    directions.forEach(([dx, dy]) => {
-        const x = unit.x + dx;
-        const y = unit.y + dy;
+            const distance = Math.abs(unit.x - x) + Math.abs(unit.y - y);
 
-        if (x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT) {
-            const enemyUnit = gameState.units.find(u => u.x === x && u.y === y && u.team !== unit.team);
-            if (enemyUnit) {
-                ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            // Check if within attack range (inclusive of min and max)
+            if (distance >= unit.minAttackRange && distance <= unit.maxAttackRange) {
+                const enemyUnit = gameState.units.find(u => u.x === x && u.y === y && u.team !== unit.team);
+                if (enemyUnit) {
+                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                }
             }
         }
-    });
+    }
 }
 
 // Draw terrain inspection highlight
