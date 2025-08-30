@@ -93,6 +93,35 @@ def move_unit():
     else:
         return jsonify({'status': 'error', 'message': 'Unit not found or invalid move'})
 
+@app.route('/api/get-movement-range', methods=['POST'])
+def get_movement_range():
+    """Get all tiles reachable by a unit considering terrain costs"""
+    data = request.get_json()
+    unit_id = data.get('unit_id')
+
+    unit = game_state.get_unit(unit_id)
+    if not unit:
+        return jsonify({'status': 'error', 'message': 'Unit not found'})
+
+    # Get reachable tiles considering terrain movement costs
+    reachable_tiles = game_state.grid.find_all_reachable_tiles(
+        (unit.x, unit.y),
+        unit.movement
+    )
+
+    # Filter out the current position and occupied tiles
+    occupied_positions = [(u.x, u.y) for u in game_state.units if u.id != unit_id]
+    available_tiles = [
+        (x, y) for x, y in reachable_tiles
+        if (x, y) != (unit.x, unit.y) and (x, y) not in occupied_positions
+    ]
+
+    return jsonify({
+        'status': 'success',
+        'reachable_tiles': available_tiles,
+        'unit_position': (unit.x, unit.y)
+    })
+
 @app.route('/api/attack', methods=['POST'])
 def attack():
     """Handle combat between units"""

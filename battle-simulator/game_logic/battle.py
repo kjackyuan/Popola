@@ -85,20 +85,6 @@ class BattleSystem:
 
         return None
 
-    def get_valid_moves(self, unit: Unit, grid: Grid, occupied_positions: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
-        """
-        Get all valid move positions for a unit
-        Excludes occupied tiles and considers movement range
-        """
-        reachable = grid.calculate_path((unit.x, unit.y), (unit.x, unit.y), unit.movement)
-        valid_moves = []
-
-        for pos in reachable:
-            if pos not in occupied_positions:
-                valid_moves.append(pos)
-
-        return valid_moves
-
     def get_valid_attacks(self, unit: Unit, grid: Grid, enemy_units: List[Unit]) -> List[Unit]:
         """
         Get all valid attack targets for a unit

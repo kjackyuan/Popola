@@ -12,6 +12,7 @@ let gameState = {
     selectedUnit: null,
     viewedUnit: null,  // For viewing enemy unit stats
     inspectedTile: null,  // For viewing terrain info
+    movementRange: [],  // Array of reachable tiles for selected unit
     showMovementRange: false,
     showAttackRange: false,
     gameStarted: false
@@ -56,6 +57,7 @@ async function loadGameState() {
         const data = await response.json();
         gameState = { ...gameState, ...data };
         gameState.inspectedTile = null;  // Clear inspected tile on load
+        gameState.movementRange = [];  // Clear movement range on load
         updateUI();
     } catch (error) {
         console.error('Error loading game state:', error);
@@ -90,6 +92,7 @@ async function startGame() {
             gameState = result.game_state;
             gameState.viewedUnit = null;  // Clear viewed unit on game start
             gameState.inspectedTile = null;  // Clear inspected tile on game start
+            gameState.movementRange = [];  // Clear movement range on game start
             updateUI();
             addToBattleLog('Battle started! Player turn.');
         } else {
@@ -111,6 +114,7 @@ async function resetGame() {
             selectedUnit: null,
             viewedUnit: null,
             inspectedTile: null,
+            movementRange: [],
             showMovementRange: false,
             showAttackRange: false,
             gameStarted: false
@@ -162,12 +166,35 @@ function handleCanvasClick(event) {
 }
 
 // Select a unit
-function selectUnit(unit) {
+async function selectUnit(unit) {
     gameState.selectedUnit = unit;
     gameState.viewedUnit = null;  // Clear viewed unit when selecting
     gameState.inspectedTile = null;  // Clear inspected tile when selecting
-    gameState.showMovementRange = true;
     gameState.showAttackRange = false;
+
+    // Fetch movement range from server
+    try {
+        const response = await fetch('/api/get-movement-range', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ unit_id: unit.id })
+        });
+
+        const data = await response.json();
+        if (data.status === 'success') {
+            gameState.movementRange = data.reachable_tiles;
+            gameState.showMovementRange = true;
+        } else {
+            console.error('Failed to get movement range:', data.message);
+            gameState.movementRange = [];
+            gameState.showMovementRange = false;
+        }
+    } catch (error) {
+        console.error('Error fetching movement range:', error);
+        gameState.movementRange = [];
+        gameState.showMovementRange = false;
+    }
+
     updateUI();
     addToBattleLog(`Selected ${unit.name}`);
 }
@@ -177,6 +204,7 @@ function viewUnit(unit) {
     gameState.viewedUnit = unit;
     gameState.selectedUnit = null;  // Clear selection when viewing enemy
     gameState.inspectedTile = null;  // Clear inspected tile when viewing unit
+    gameState.movementRange = [];  // Clear movement range when viewing unit
     gameState.showMovementRange = false;
     gameState.showAttackRange = false;
     updateUI();
@@ -188,6 +216,7 @@ function inspectTerrain(x, y) {
     gameState.inspectedTile = { x, y };
     gameState.selectedUnit = null;  // Clear selection when inspecting terrain
     gameState.viewedUnit = null;  // Clear viewed unit when inspecting terrain
+    gameState.movementRange = [];  // Clear movement range when inspecting terrain
     gameState.showMovementRange = false;
     gameState.showAttackRange = false;
     updateUI();
@@ -199,6 +228,7 @@ function deselectUnit() {
     gameState.selectedUnit = null;
     gameState.viewedUnit = null;
     gameState.inspectedTile = null;
+    gameState.movementRange = [];
     gameState.showMovementRange = false;
     gameState.showAttackRange = false;
     updateUI();
@@ -206,8 +236,25 @@ function deselectUnit() {
 }
 
 // Enter move mode
-function enterMoveMode() {
+async function enterMoveMode() {
     if (!gameState.selectedUnit) return;
+
+    // Refetch movement range in case unit moved
+    try {
+        const response = await fetch('/api/get-movement-range', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ unit_id: gameState.selectedUnit.id })
+        });
+
+        const data = await response.json();
+        if (data.status === 'success') {
+            gameState.movementRange = data.reachable_tiles;
+        }
+    } catch (error) {
+        console.error('Error refetching movement range:', error);
+    }
+
     gameState.showMovementRange = true;
     gameState.showAttackRange = false;
 }
@@ -223,10 +270,10 @@ function enterAttackMode() {
 async function moveUnit(x, y) {
     if (!gameState.selectedUnit) return;
 
-    // Check if move is valid (within movement range)
-    const distance = Math.abs(gameState.selectedUnit.x - x) + Math.abs(gameState.selectedUnit.y - y);
-    if (distance > gameState.selectedUnit.movement) {
-        addToBattleLog('Too far to move there!');
+    // Check if destination is in reachable tiles (considering terrain costs)
+    const isReachable = gameState.movementRange.some(([rx, ry]) => rx === x && ry === y);
+    if (!isReachable) {
+        addToBattleLog('Cannot reach that tile!');
         return;
     }
 
@@ -253,6 +300,7 @@ async function moveUnit(x, y) {
     });
 
     addToBattleLog(`${gameState.selectedUnit.name} moved to (${x}, ${y})`);
+    gameState.movementRange = [];  // Clear movement range after moving
     gameState.showMovementRange = false;
     updateUI();
 }
@@ -305,6 +353,7 @@ function endUnitTurn() {
     gameState.selectedUnit = null;
     gameState.viewedUnit = null;
     gameState.inspectedTile = null;
+    gameState.movementRange = [];
     gameState.showMovementRange = false;
     gameState.showAttackRange = false;
     updateUI();
@@ -507,24 +556,17 @@ function drawGrid() {
 
 // Draw movement range
 function drawMovementRange() {
-    const unit = gameState.selectedUnit;
+    if (!gameState.selectedUnit || gameState.movementRange.length === 0) return;
+
     ctx.fillStyle = 'rgba(52, 152, 219, 0.3)';
     ctx.strokeStyle = '#3498db';
     ctx.lineWidth = 2;
 
-    for (let x = Math.max(0, unit.x - unit.movement); x <= Math.min(GRID_WIDTH - 1, unit.x + unit.movement); x++) {
-        for (let y = Math.max(0, unit.y - unit.movement); y <= Math.min(GRID_HEIGHT - 1, unit.y + unit.movement); y++) {
-            const distance = Math.abs(unit.x - x) + Math.abs(unit.y - y);
-            if (distance <= unit.movement && distance > 0) {
-                // Check if tile is empty
-                const occupyingUnit = gameState.units.find(u => u.x === x && u.y === y);
-                if (!occupyingUnit) {
-                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                    ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                }
-            }
-        }
-    }
+    // Draw all reachable tiles
+    gameState.movementRange.forEach(([x, y]) => {
+        ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    });
 }
 
 // Draw attack range

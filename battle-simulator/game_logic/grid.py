@@ -96,12 +96,12 @@ class Grid:
 
         return neighbors
 
-    def calculate_path(self, start: Tuple[int, int], end: Tuple[int, int], movement_range: int) -> List[Tuple[int, int]]:
+    def find_all_reachable_tiles(self, start: Tuple[int, int], movement_range: int) -> List[Tuple[int, int]]:
         """
         Calculate path from start to end within movement range
         Returns list of positions that can be reached
         """
-        if not self.is_valid_position(start[0], start[1]) or not self.is_valid_position(end[0], end[1]):
+        if not self.is_valid_position(start[0], start[1]):
             return []
 
         # Simple BFS to find reachable tiles
