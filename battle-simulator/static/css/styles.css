@@ -1,0 +1,204 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #2c3e50;
+    color: #ecf0f1;
+    line-height: 1.6;
+}
+
+.game-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Header styles */
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #3498db;
+}
+
+.game-header h1 {
+    color: #ecf0f1;
+    font-size: 2rem;
+}
+
+.game-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+#turn-indicator {
+    font-weight: bold;
+    font-size: 1.2rem;
+    color: #f39c12;
+}
+
+button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #2980b9;
+}
+
+button:disabled {
+    background-color: #7f8c8d;
+    cursor: not-allowed;
+}
+
+/* Game area layout */
+.game-area {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.game-canvas-container {
+    flex: 1;
+    border: 3px solid #34495e;
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: #1a1a1a;
+}
+
+#game-canvas {
+    display: block;
+    background-color: #27ae60;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+/* UI Panel */
+.game-ui {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.unit-info, .action-panel, .game-log {
+    background-color: #34495e;
+    border-radius: 10px;
+    padding: 15px;
+    border: 2px solid #2c3e50;
+}
+
+.unit-info h3, .action-panel h3, .game-log h3 {
+    color: #ecf0f1;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #7f8c8d;
+    padding-bottom: 5px;
+}
+
+#unit-stats {
+    font-size: 0.9rem;
+}
+
+#unit-stats p {
+    margin: 5px 0;
+}
+
+.stat-label {
+    font-weight: bold;
+    color: #bdc3c7;
+}
+
+.stat-value {
+    color: #ecf0f1;
+}
+
+#action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#battle-log {
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 0.85rem;
+}
+
+#battle-log p {
+    margin: 5px 0;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .game-header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+
+    .game-area {
+        flex-direction: column;
+    }
+
+    .game-ui {
+        width: 100%;
+    }
+
+    .game-canvas-container {
+        order: 2;
+    }
+}
+
+/* Grid and unit styling (for canvas overlay) */
+.grid-line {
+    stroke: rgba(0, 0, 0, 0.3);
+    stroke-width: 1;
+}
+
+.unit-sprite {
+    border-radius: 50%;
+    border: 2px solid white;
+}
+
+.unit-selected {
+    border-color: #f39c12;
+    box-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
+}
+
+.enemy-unit {
+    border-color: #e74c3c;
+}
+
+.player-unit {
+    border-color: #3498db;
+}
+
+/* Movement range overlay */
+.movement-range {
+    fill: rgba(52, 152, 219, 0.3);
+    stroke: #3498db;
+    stroke-width: 2;
+}
+
+.attack-range {
+    fill: rgba(231, 76, 60, 0.3);
+    stroke: #e74c3c;
+    stroke-width: 2;
+}

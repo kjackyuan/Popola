@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fire Emblem Style Battle Simulator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1>Fire Emblem Style Battle Simulator</h1>
+            <div class="game-info">
+                <span id="turn-indicator">Player Turn</span>
+                <button id="reset-btn">Reset Game</button>
+                <button id="start-btn">Start Battle</button>
+            </div>
+        </div>
+
+        <div class="game-area">
+            <div class="game-canvas-container">
+                <canvas id="game-canvas" width="800" height="600"></canvas>
+            </div>
+
+            <div class="game-ui">
+                <div class="unit-info">
+                    <h3>Selected Unit</h3>
+                    <div id="unit-stats">
+                        <p>No unit selected</p>
+                    </div>
+                </div>
+
+                <div class="action-panel">
+                    <h3>Actions</h3>
+                    <div id="action-buttons">
+                        <button id="move-btn" disabled>Move</button>
+                        <button id="attack-btn" disabled>Attack</button>
+                        <button id="wait-btn" disabled>Wait</button>
+                    </div>
+                </div>
+
+                <div class="game-log">
+                    <h3>Battle Log</h3>
+                    <div id="battle-log">
+                        <p>Game started...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/game.js') }}"></script>
+</body>
+</html>
